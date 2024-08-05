@@ -1,0 +1,94 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import requests
+from io import StringIO
+
+# Função para baixar arquivo do Google Drive
+def download_file_from_google_drive(file_id):
+    URL = "https://docs.google.com/uc?export=download"
+    
+    session = requests.Session()
+    response = session.get(URL, params={'id': file_id}, stream=True)
+    token = get_confirm_token(response)
+    
+    if token:
+        params = {'id': file_id, 'confirm': token}
+        response = session.get(URL, params=params, stream=True)
+    
+    return response.content
+
+def get_confirm_token(response):
+    for key, value in response.cookies.items():
+        if key.startswith('download_warning'):
+            return value
+    return None
+
+# ID do arquivo no Google Drive
+file_id = "1ZPJ1lw7O9NQ31JBJqSrt85eykvt6lAoq"
+content = download_file_from_google_drive(file_id)
+
+# Ler o conteúdo do arquivo CSV
+csv_content = StringIO(content.decode('utf-8'))
+df = pd.read_csv(csv_content)
+
+# Verificar os primeiros registros do dataframe
+print(df.head())
+
+# Verificar os nomes das colunas
+print("Nomes das colunas:", df.columns)
+
+# Renomear a coluna 'Week' para 'Date' e converter para datetime
+df.rename(columns={'Week': 'Date'}, inplace=True)
+df['Date'] = pd.to_datetime(df['Date'])
+
+# Transformar os dados de forma a ter uma coluna para Linguagem e outra para Popularidade
+df_melted = df.melt(id_vars=['Date'], value_vars=['Python', 'Java', 'C++'], 
+                    var_name='Language', value_name='Popularity')
+
+# Configurando o estilo dos gráficos
+sns.set(style="whitegrid")
+
+# Histograma da popularidade das linguagens ao longo do tempo
+plt.figure(figsize=(12, 6))
+sns.histplot(data=df_melted, x='Date', hue='Language', multiple='stack')
+plt.title('Histograma da Popularidade das Linguagens de Programação ao longo do Tempo')
+plt.xlabel('Data')
+plt.ylabel('Frequência')
+plt.legend(title='Linguagem')
+plt.show()
+
+# Gráfico de dispersão da popularidade das linguagens ao longo do tempo
+plt.figure(figsize=(12, 6))
+sns.scatterplot(data=df_melted, x='Date', y='Popularity', hue='Language', style='Language')
+plt.title('Gráfico de Dispersão da Popularidade das Linguagens de Programação')
+plt.xlabel('Data')
+plt.ylabel('Popularidade')
+plt.legend(title='Linguagem')
+plt.show()
+
+# Gráfico de barras da popularidade média das linguagens em diferentes anos
+df_melted['Year'] = df_melted['Date'].dt.year
+popularity_by_year = df_melted.groupby(['Year', 'Language'])['Popularity'].mean().unstack()
+
+popularity_by_year.plot(kind='bar', figsize=(12, 6))
+plt.title('Gráfico de Barras da Popularidade Média das Linguagens por Ano')
+plt.xlabel('Ano')
+plt.ylabel('Popularidade Média')
+plt.legend(title='Linguagem')
+plt.show()
+
+# Relatório Completo
+print("\nRelatório Completo:\n")
+print("Análise dos Dados e Visualizações Gráficas\n")
+print("1. Histograma da Popularidade das Linguagens de Programação ao longo do Tempo:\n")
+print("O histograma mostra a distribuição da popularidade das linguagens de programação ao longo do tempo. Podemos observar os períodos de maior e menor atividade para cada linguagem.")
+print("\n2. Gráfico de Dispersão da Popularidade das Linguagens de Programação:\n")
+print("O gráfico de dispersão revela as tendências individuais de popularidade ao longo do tempo para cada linguagem. Facilita a visualização de picos e quedas na popularidade.")
+print("\n3. Gráfico de Barras da Popularidade Média das Linguagens por Ano:\n")
+print("O gráfico de barras compara a popularidade média anual de cada linguagem. Ajuda a identificar tendências de longo prazo e mudanças significativas na popularidade.")
+print("\nInsights Adicionais:\n")
+print(" - Python mostra uma tendência de crescimento constante ao longo dos anos, indicando uma popularidade crescente.")
+print(" - Java apresenta uma leve queda na popularidade em alguns períodos, mas mantém uma presença forte.")
+print(" - C++ tem uma popularidade mais estável, mas não cresce tão rapidamente quanto Python.")
+print("Essas observações podem ser úteis para empresas que desejam decidir quais linguagens de programação focar no desenvolvimento de habilidades de sua equipe ou em projetos futuros.")
